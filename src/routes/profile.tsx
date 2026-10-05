@@ -1,11 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Flame, Sparkles, LogOut, Languages, Crown, Heart, ShieldCheck } from "lucide-react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Flame, Sparkles, LogOut, Languages, Crown, Heart, ShieldCheck, Bell, BellOff } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { QuoteCard } from "@/components/QuoteCard";
+import { BadgesGrid } from "@/components/BadgesGrid";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-context";
-import { getFavorites, getUserStats } from "@/lib/quotes";
+import { getFavorites, getProfile, getUserStats, updateReminderTime } from "@/lib/quotes";
+import { isPushSubscribed, isPushSupported, subscribeToPush, unsubscribeFromPush } from "@/lib/push";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -20,6 +24,8 @@ export const Route = createFileRoute("/profile")({
 function ProfilePage() {
   const { t, locale, setLocale } = useI18n();
   const { user, isAdmin, signOut } = useAuth();
+  const qc = useQueryClient();
+  const [reminderTime, setReminderTime] = useState<string | null>(null);
 
   const stats = useQuery({
     queryKey: ["user-stats", user?.id],
@@ -31,6 +37,43 @@ function ProfilePage() {
     queryFn: () => (user ? getFavorites(user.id) : Promise.resolve([])),
     enabled: !!user,
   });
+  const profile = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: () => (user ? getProfile(user.id) : Promise.resolve(null)),
+    enabled: !!user,
+  });
+  const pushSubscribed = useQuery({
+    queryKey: ["push-subscribed"],
+    queryFn: isPushSubscribed,
+    enabled: isPushSupported(),
+  });
+
+  const toggleReminders = useMutation({
+    mutationFn: async (enable: boolean) => {
+      if (!user) return;
+      if (enable) {
+        const { error } = await subscribeToPush(user.id);
+        if (error === "unsupported") throw new Error(t("reminders_unsupported"));
+        if (error === "denied") throw new Error(t("reminders_denied"));
+        if (error) throw new Error(error);
+      } else {
+        await unsubscribeFromPush(user.id);
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["push-subscribed"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("something_wrong")),
+  });
+
+  const saveReminderTime = useMutation({
+    mutationFn: (time: string) => {
+      if (!user) throw new Error("not authenticated");
+      return updateReminderTime(user.id, time);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["profile"] }),
+    onError: () => toast.error(t("something_wrong")),
+  });
+
+  const currentReminderTime = reminderTime ?? profile.data?.reminder_time ?? "07:00";
 
   if (!user) {
     return (
@@ -103,6 +146,54 @@ function ProfilePage() {
           <span className="text-xs text-muted-foreground">{locale === "ar" ? "العربية · AR" : "English · EN"}</span>
         </button>
 
+        {/* Reminders */}
+        <div className="glass space-y-3 rounded-2xl p-4">
+          <button
+            onClick={() => toggleReminders.mutate(!pushSubscribed.data)}
+            disabled={toggleReminders.isPending || !isPushSupported()}
+            className="flex w-full items-center justify-between disabled:opacity-50"
+          >
+            <span className="flex items-center gap-3 text-sm">
+              {pushSubscribed.data ? (
+                <Bell className="size-4 text-primary" />
+              ) : (
+                <BellOff className="size-4 text-muted-foreground" />
+              )}
+              <span>
+                <span className="block">{t("reminders")}</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  {isPushSupported() ? t("reminders_desc") : t("reminders_unsupported")}
+                </span>
+              </span>
+            </span>
+            {isPushSupported() && (
+              <span
+                className={`grid h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+                  pushSubscribed.data ? "bg-primary justify-end" : "bg-white/10 justify-start"
+                }`}
+              >
+                <span className="size-5 rounded-full bg-white" />
+              </span>
+            )}
+          </button>
+
+          {pushSubscribed.data && (
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <span className="text-xs text-muted-foreground">{t("reminder_time_label")}</span>
+              <input
+                type="time"
+                value={currentReminderTime}
+                onChange={(e) => {
+                  setReminderTime(e.target.value);
+                  saveReminderTime.mutate(e.target.value);
+                }}
+                className="rounded-xl bg-input px-3 py-1.5 text-sm outline-none"
+                dir="ltr"
+              />
+            </div>
+          )}
+        </div>
+
         {isAdmin && (
           <Link to="/admin" className="glass flex w-full items-center justify-between rounded-2xl p-4">
             <span className="flex items-center gap-3 text-sm font-medium">
@@ -112,6 +203,8 @@ function ProfilePage() {
             <span className="text-xs text-muted-foreground">←</span>
           </Link>
         )}
+
+        <BadgesGrid />
 
         {/* Favorites */}
         <section>

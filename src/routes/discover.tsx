@@ -6,7 +6,14 @@ import { AppShell } from "@/components/AppShell";
 import { QuoteCard } from "@/components/QuoteCard";
 import { ExplainSheet } from "@/components/ExplainSheet";
 import { useI18n } from "@/lib/i18n";
-import { listCategories, listQuotesByCategory, searchQuotes, type QuoteFull } from "@/lib/quotes";
+import {
+  listAuthors,
+  listCategories,
+  listQuotesByAuthor,
+  listQuotesByCategory,
+  searchQuotes,
+  type QuoteFull,
+} from "@/lib/quotes";
 
 export const Route = createFileRoute("/discover")({
   head: () => ({
@@ -21,22 +28,39 @@ export const Route = createFileRoute("/discover")({
 function DiscoverPage() {
   const { t, locale } = useI18n();
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<"categories" | "authors">("categories");
   const [activeCat, setActiveCat] = useState<string | null>(null);
+  const [activeAuthor, setActiveAuthor] = useState<string | null>(null);
   const [explain, setExplain] = useState<QuoteFull | null>(null);
 
+  const searching = query.trim().length > 1;
+
   const cats = useQuery({ queryKey: ["categories"], queryFn: listCategories });
+  const authors = useQuery({ queryKey: ["authors"], queryFn: listAuthors });
   const searchRes = useQuery({
     queryKey: ["search", query],
     queryFn: () => searchQuotes(query),
-    enabled: query.trim().length > 1,
+    enabled: searching,
   });
   const byCat = useQuery({
     queryKey: ["cat-quotes", activeCat],
     queryFn: () => (activeCat ? listQuotesByCategory(activeCat) : Promise.resolve([])),
-    enabled: !!activeCat && query.trim().length < 2,
+    enabled: !!activeCat && !searching,
+  });
+  const byAuthor = useQuery({
+    queryKey: ["author-quotes", activeAuthor],
+    queryFn: () => (activeAuthor ? listQuotesByAuthor(activeAuthor) : Promise.resolve([])),
+    enabled: !!activeAuthor && !searching,
   });
 
-  const showing = query.trim().length > 1 ? searchRes.data ?? [] : byCat.data ?? [];
+  const showing = searching ? searchRes.data ?? [] : mode === "categories" ? byCat.data ?? [] : byAuthor.data ?? [];
+  const showingList = searching || (mode === "categories" ? !!activeCat : !!activeAuthor);
+
+  const switchMode = (next: "categories" | "authors") => {
+    setMode(next);
+    setActiveCat(null);
+    setActiveAuthor(null);
+  };
 
   return (
     <AppShell>
@@ -59,27 +83,48 @@ function DiscoverPage() {
             </button>
           )}
         </div>
+
+        {!searching && (
+          <div className="glass mt-4 grid grid-cols-2 gap-1 rounded-2xl p-1">
+            <button
+              onClick={() => switchMode("categories")}
+              className={`rounded-xl py-2 text-xs font-semibold transition-all ${
+                mode === "categories" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              }`}
+            >
+              {t("tab_categories")}
+            </button>
+            <button
+              onClick={() => switchMode("authors")}
+              className={`rounded-xl py-2 text-xs font-semibold transition-all ${
+                mode === "authors" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+              }`}
+            >
+              {t("tab_authors")}
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="flex-1 space-y-6 px-5 pb-4">
-        {/* Categories */}
-        <section className="space-y-3">
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <CategoryChip active={!activeCat} onClick={() => setActiveCat(null)} label={t("view_all")} />
-            {cats.data?.map((c) => (
-              <CategoryChip
-                key={c.id}
-                active={activeCat === c.slug}
-                onClick={() => setActiveCat(c.slug)}
-                label={locale === "ar" ? c.name_ar : c.name_en}
-                icon={c.icon}
-              />
-            ))}
-          </div>
-        </section>
+        {!searching && mode === "categories" && (
+          <section className="space-y-3">
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <CategoryChip active={!activeCat} onClick={() => setActiveCat(null)} label={t("view_all")} />
+              {cats.data?.map((c) => (
+                <CategoryChip
+                  key={c.id}
+                  active={activeCat === c.slug}
+                  onClick={() => setActiveCat(c.slug)}
+                  label={locale === "ar" ? c.name_ar : c.name_en}
+                  icon={c.icon}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* Category grid when nothing active/search */}
-        {!activeCat && query.trim().length < 2 && cats.data && (
+        {!searching && mode === "categories" && !activeCat && cats.data && (
           <section className="grid grid-cols-2 gap-3">
             {cats.data.map((c) => (
               <button
@@ -96,8 +141,36 @@ function DiscoverPage() {
           </section>
         )}
 
-        {/* Quotes list */}
-        {(activeCat || query.trim().length > 1) && (
+        {!searching && mode === "authors" && !activeAuthor && (
+          <section className="space-y-2">
+            {authors.data?.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setActiveAuthor(a.id)}
+                className="glass flex w-full items-center justify-between rounded-2xl p-4 text-start transition-all hover:border-primary/40"
+              >
+                <div>
+                  <p className="text-sm font-semibold">{locale === "ar" ? a.name_ar : a.name_en || a.name_ar}</p>
+                  {a.era && <p className="text-[10px] text-muted-foreground">{a.era}</p>}
+                </div>
+                <span className="mono text-xs text-primary/70">
+                  {a.quote_count} {t("quotes_count")}
+                </span>
+              </button>
+            ))}
+          </section>
+        )}
+
+        {!searching && mode === "authors" && activeAuthor && (
+          <button
+            onClick={() => setActiveAuthor(null)}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            ← {t("tab_authors")}
+          </button>
+        )}
+
+        {(showingList) && (
           <section className="space-y-4">
             {showing.length === 0 ? (
               <p className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">

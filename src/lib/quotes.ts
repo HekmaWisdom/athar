@@ -6,16 +6,33 @@ export type Profile = {
   interests: string[];
   reminder_time: string;
   mood_baseline: string | null;
+  journal_salt: string | null;
 };
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, onboarded, interests, reminder_time, mood_baseline")
+    .select("id, onboarded, interests, reminder_time, mood_baseline, journal_salt")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+// One-time: first journal entry a user ever writes creates their salt. Stored server-side
+// (not secret) so the same passphrase always re-derives the same key on any device.
+export async function ensureJournalSalt(userId: string, salt: string) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ journal_salt: salt })
+    .eq("id", userId)
+    .is("journal_salt", null);
+  if (error) throw error;
+}
+
+export async function updateReminderTime(userId: string, reminderTime: string) {
+  const { error } = await supabase.from("profiles").update({ reminder_time: reminderTime }).eq("id", userId);
+  if (error) throw error;
 }
 
 export async function completeOnboarding(
@@ -35,12 +52,24 @@ export type QuoteFull = {
   text_en: string | null;
   source: string | null;
   tags: string[] | null;
+  explanation_ar: string | null;
+  explanation_en: string | null;
+  modern_context_ar: string | null;
+  modern_context_en: string | null;
+  action_step_ar: string | null;
+  action_step_en: string | null;
+  journal_prompt_ar: string | null;
+  journal_prompt_en: string | null;
+  is_premium_explanation: boolean;
   author: { id: string; name_ar: string; name_en: string | null } | null;
   category: { id: string; slug: string; name_ar: string; name_en: string; icon: string | null; accent: string | null } | null;
 };
 
 const SELECT = `
   id, text_ar, text_en, source, tags,
+  explanation_ar, explanation_en, modern_context_ar, modern_context_en,
+  action_step_ar, action_step_en, journal_prompt_ar, journal_prompt_en,
+  is_premium_explanation,
   author:authors(id, name_ar, name_en),
   category:categories(id, slug, name_ar, name_en, icon, accent)
 `;
@@ -89,6 +118,35 @@ export async function listQuotesByCategory(categorySlug: string, limit = 50) {
     .from("quotes")
     .select(SELECT)
     .eq("category_id", cat.id)
+    .eq("published", true)
+    .limit(limit);
+  return (data as unknown as QuoteFull[]) ?? [];
+}
+
+export type AuthorSummary = { id: string; name_ar: string; name_en: string | null; era: string | null; quote_count: number };
+
+export async function listAuthors(): Promise<AuthorSummary[]> {
+  const { data } = await supabase
+    .from("quotes")
+    .select("author_id, author:authors(id, name_ar, name_en, era)")
+    .eq("published", true)
+    .not("author_id", "is", null);
+
+  const counts = new Map<string, AuthorSummary>();
+  for (const row of (data as unknown as { author_id: string; author: Omit<AuthorSummary, "quote_count"> | null }[]) ?? []) {
+    if (!row.author) continue;
+    const existing = counts.get(row.author.id);
+    if (existing) existing.quote_count++;
+    else counts.set(row.author.id, { ...row.author, quote_count: 1 });
+  }
+  return [...counts.values()].sort((a, b) => b.quote_count - a.quote_count);
+}
+
+export async function listQuotesByAuthor(authorId: string, limit = 50) {
+  const { data } = await supabase
+    .from("quotes")
+    .select(SELECT)
+    .eq("author_id", authorId)
     .eq("published", true)
     .limit(limit);
   return (data as unknown as QuoteFull[]) ?? [];
@@ -154,7 +212,10 @@ export async function getUserStats(userId: string) {
   return data;
 }
 
-export async function trackDailyVisit(userId: string) {
+// Returns whether this call actually advanced the streak (i.e. it's a genuinely
+// new day for this user) — callers use this to avoid double-counting analytics
+// events like "quote_read" on every page refresh within the same day.
+export async function trackDailyVisit(userId: string): Promise<{ isNewDay: boolean }> {
   const today = new Date().toISOString().slice(0, 10);
   const existing = await getUserStats(userId);
   if (!existing) {
@@ -166,9 +227,9 @@ export async function trackDailyVisit(userId: string) {
       xp: 10,
       level: 1,
     });
-    return;
+    return { isNewDay: true };
   }
-  if (existing.last_active_date === today) return;
+  if (existing.last_active_date === today) return { isNewDay: false };
   const last = existing.last_active_date ? new Date(existing.last_active_date) : null;
   const yesterday = new Date();
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
@@ -187,6 +248,7 @@ export async function trackDailyVisit(userId: string) {
       level: newLevel,
     })
     .eq("user_id", userId);
+  return { isNewDay: true };
 }
 
 export async function listJournal(userId: string) {
@@ -199,10 +261,16 @@ export async function listJournal(userId: string) {
   return data ?? [];
 }
 
-export async function addJournalEntry(userId: string, content: string, quoteId?: string | null, mood?: string | null) {
+export async function addJournalEntry(
+  userId: string,
+  ciphertext: string,
+  iv: string,
+  quoteId?: string | null,
+  mood?: string | null,
+) {
   const { data } = await supabase
     .from("journal_entries")
-    .insert({ user_id: userId, content, quote_id: quoteId ?? null, mood: mood ?? null })
+    .insert({ user_id: userId, ciphertext, iv, quote_id: quoteId ?? null, mood: mood ?? null })
     .select()
     .maybeSingle();
   return data;

@@ -1,10 +1,14 @@
-import { Heart, Share2, Sparkles, Copy, Check } from "lucide-react";
+import { Heart, Share2, Sparkles, Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ShareCardSheet } from "@/components/ShareCardSheet";
 import type { QuoteFull } from "@/lib/quotes";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-context";
 import { toggleFavorite } from "@/lib/quotes";
+import { pickQuoteTheme } from "@/lib/quote-theme";
+import { trackEvent } from "@/lib/analytics";
+import { checkAndNotifyBadges } from "@/lib/badges";
 
 type Props = {
   quote: QuoteFull;
@@ -17,7 +21,7 @@ export function QuoteCard({ quote, favored: initialFav, onExplain, showDate = tr
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const [fav, setFav] = useState(!!initialFav);
-  const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const text = locale === "ar" ? quote.text_ar : quote.text_en || quote.text_ar;
   const authorName = quote.author
@@ -30,6 +34,8 @@ export function QuoteCard({ quote, favored: initialFav, onExplain, showDate = tr
       ? quote.category.name_ar
       : quote.category.name_en
     : "";
+
+  const theme = pickQuoteTheme(quote.id);
 
   const dateLabel = showDate
     ? new Intl.DateTimeFormat(locale === "ar" ? "ar-EG-u-nu-arab" : "en-US", {
@@ -47,47 +53,49 @@ export function QuoteCard({ quote, favored: initialFav, onExplain, showDate = tr
     setFav(next);
     try {
       await toggleFavorite(user.id, quote.id, next);
+      if (next) {
+        await trackEvent("quote_favorited", user.id, { quote_id: quote.id });
+        checkAndNotifyBadges(user.id, locale);
+      }
     } catch {
       setFav(!next);
       toast.error(t("something_wrong"));
     }
   };
 
-  const share = async () => {
-    const shareText = `"${text}"${authorName ? ` — ${authorName}` : ""}`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "Athar", text: shareText });
-        return;
-      } catch {
-        /* user cancelled */
-      }
-    }
-    await navigator.clipboard.writeText(shareText);
-    setCopied(true);
-    toast.success(t("copied"));
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   return (
     <article className="relative">
-      <div className="absolute -inset-6 -z-10 rounded-[40px] bg-primary/10 blur-3xl opacity-60" />
+      <div
+        className="absolute -inset-6 -z-10 rounded-[40px] blur-3xl opacity-60"
+        style={{ backgroundColor: theme.glow }}
+      />
       <div className="glass-strong relative overflow-hidden rounded-[32px] p-7 shadow-card">
         <div className="mb-6 flex items-center justify-between">
-          <span className="rounded-full border border-primary/30 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-primary">
+          <span
+            className="rounded-full border px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em]"
+            style={{ borderColor: `color-mix(in oklch, ${theme.accent} 30%, transparent)`, color: theme.accent }}
+          >
             {t("today_wisdom")}
           </span>
-          {dateLabel && <span className="mono text-[10px] text-primary/50">{dateLabel}</span>}
+          {dateLabel && (
+            <span className="mono text-[10px]" style={{ color: `color-mix(in oklch, ${theme.accent} 50%, transparent)` }}>
+              {dateLabel}
+            </span>
+          )}
         </div>
 
-        <blockquote className="naskh text-pretty text-[27px] font-medium leading-[1.65] text-foreground">
+        <blockquote className="naskh text-pretty text-[27px] font-medium leading-[1.9] text-foreground">
           &ldquo;{text}&rdquo;
         </blockquote>
 
         <div className="mt-7 flex flex-col gap-1">
-          {authorName && <p className="text-sm font-medium text-primary/85">{authorName}</p>}
+          {authorName && (
+            <p className="text-sm font-medium" style={{ color: `color-mix(in oklch, ${theme.accent} 85%, white)` }}>
+              {authorName}
+            </p>
+          )}
           {catName && (
-            <p className="flex items-center gap-1.5 text-xs text-primary/50">
+            <p className="flex items-center gap-1.5 text-xs" style={{ color: `color-mix(in oklch, ${theme.accent} 50%, transparent)` }}>
               <span>{quote.category?.icon}</span>
               <span>{catName}</span>
             </p>
@@ -99,8 +107,8 @@ export function QuoteCard({ quote, favored: initialFav, onExplain, showDate = tr
             <IconButton onClick={toggleFav} active={fav} label={t("save")}>
               <Heart className={`size-4 ${fav ? "fill-primary text-primary" : ""}`} />
             </IconButton>
-            <IconButton onClick={share} label={t("share")}>
-              {copied ? <Check className="size-4" /> : <Share2 className="size-4" />}
+            <IconButton onClick={() => setShareOpen(true)} label={t("share")}>
+              <Share2 className="size-4" />
             </IconButton>
             <IconButton onClick={() => navigator.clipboard.writeText(text).then(() => toast.success(t("copied")))} label={t("copy")}>
               <Copy className="size-4" />
@@ -117,6 +125,7 @@ export function QuoteCard({ quote, favored: initialFav, onExplain, showDate = tr
           )}
         </div>
       </div>
+      {shareOpen && <ShareCardSheet text={text} author={authorName} onClose={() => setShareOpen(false)} />}
     </article>
   );
 }

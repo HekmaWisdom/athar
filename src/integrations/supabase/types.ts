@@ -137,27 +137,30 @@ export type Database = {
       }
       journal_entries: {
         Row: {
-          content: string
+          ciphertext: string
           created_at: string
           id: string
+          iv: string
           mood: string | null
           quote_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          content: string
+          ciphertext: string
           created_at?: string
           id?: string
+          iv: string
           mood?: string | null
           quote_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          content?: string
+          ciphertext?: string
           created_at?: string
           id?: string
+          iv?: string
           mood?: string | null
           quote_id?: string | null
           updated_at?: string
@@ -204,10 +207,13 @@ export type Database = {
           display_name: string | null
           id: string
           interests: string[]
+          journal_salt: string | null
+          last_reminder_sent_date: string | null
           locale: string
           mood_baseline: string | null
           onboarded: boolean
           reminder_time: string
+          timezone: string
           updated_at: string
         }
         Insert: {
@@ -216,10 +222,13 @@ export type Database = {
           display_name?: string | null
           id: string
           interests?: string[]
+          journal_salt?: string | null
+          last_reminder_sent_date?: string | null
           locale?: string
           mood_baseline?: string | null
           onboarded?: boolean
           reminder_time?: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
@@ -228,20 +237,59 @@ export type Database = {
           display_name?: string | null
           id?: string
           interests?: string[]
+          journal_salt?: string | null
+          last_reminder_sent_date?: string | null
           locale?: string
           mood_baseline?: string | null
           onboarded?: boolean
           reminder_time?: string
+          timezone?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
         }
         Relationships: []
       }
       quotes: {
         Row: {
+          action_step_ar: string | null
+          action_step_en: string | null
           author_id: string | null
           category_id: string | null
           created_at: string
+          explanation_ar: string | null
+          explanation_en: string | null
           id: string
+          is_premium_explanation: boolean
+          journal_prompt_ar: string | null
+          journal_prompt_en: string | null
+          modern_context_ar: string | null
+          modern_context_en: string | null
           published: boolean
           scheduled_for: string | null
           source: string | null
@@ -251,10 +299,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_step_ar?: string | null
+          action_step_en?: string | null
           author_id?: string | null
           category_id?: string | null
           created_at?: string
+          explanation_ar?: string | null
+          explanation_en?: string | null
           id?: string
+          is_premium_explanation?: boolean
+          journal_prompt_ar?: string | null
+          journal_prompt_en?: string | null
+          modern_context_ar?: string | null
+          modern_context_en?: string | null
           published?: boolean
           scheduled_for?: string | null
           source?: string | null
@@ -264,10 +321,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_step_ar?: string | null
+          action_step_en?: string | null
           author_id?: string | null
           category_id?: string | null
           created_at?: string
+          explanation_ar?: string | null
+          explanation_en?: string | null
           id?: string
+          is_premium_explanation?: boolean
+          journal_prompt_ar?: string | null
+          journal_prompt_en?: string | null
+          modern_context_ar?: string | null
+          modern_context_en?: string | null
           published?: boolean
           scheduled_for?: string | null
           source?: string | null
@@ -368,6 +434,156 @@ export type Database = {
           updated_at?: string
           user_id?: string
           xp?: number
+        }
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          id: number
+          user_id: string | null
+          session_id: string
+          event_name: string
+          properties: Json
+          occurred_at: string
+        }
+        Insert: {
+          id?: number
+          user_id?: string | null
+          session_id: string
+          event_name: string
+          properties?: Json
+          occurred_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string | null
+          session_id?: string
+          event_name?: string
+          properties?: Json
+          occurred_at?: string
+        }
+        Relationships: []
+      }
+      badges: {
+        Row: {
+          id: string
+          slug: string
+          name_ar: string
+          name_en: string
+          description_ar: string | null
+          description_en: string | null
+          icon: string
+          kind: string
+          threshold: number
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name_ar: string
+          name_en: string
+          description_ar?: string | null
+          description_en?: string | null
+          icon?: string
+          kind: string
+          threshold: number
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name_ar?: string
+          name_en?: string
+          description_ar?: string | null
+          description_en?: string | null
+          icon?: string
+          kind?: string
+          threshold?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          user_id: string
+          badge_id: string
+          earned_at: string
+        }
+        Insert: {
+          user_id: string
+          badge_id: string
+          earned_at?: string
+        }
+        Update: {
+          user_id?: string
+          badge_id?: string
+          earned_at?: string
+        }
+        Relationships: []
+      }
+      challenges: {
+        Row: {
+          id: string
+          slug: string
+          title_ar: string
+          title_en: string
+          description_ar: string | null
+          description_en: string | null
+          kind: string
+          goal_type: string
+          goal_count: number
+          starts_on: string
+          ends_on: string
+          badge_id: string | null
+        }
+        Insert: {
+          id?: string
+          slug: string
+          title_ar: string
+          title_en: string
+          description_ar?: string | null
+          description_en?: string | null
+          kind: string
+          goal_type: string
+          goal_count: number
+          starts_on: string
+          ends_on: string
+          badge_id?: string | null
+        }
+        Update: {
+          id?: string
+          slug?: string
+          title_ar?: string
+          title_en?: string
+          description_ar?: string | null
+          description_en?: string | null
+          kind?: string
+          goal_type?: string
+          goal_count?: number
+          starts_on?: string
+          ends_on?: string
+          badge_id?: string | null
+        }
+        Relationships: []
+      }
+      challenge_progress: {
+        Row: {
+          user_id: string
+          challenge_id: string
+          progress: number
+          completed_at: string | null
+        }
+        Insert: {
+          user_id: string
+          challenge_id: string
+          progress?: number
+          completed_at?: string | null
+        }
+        Update: {
+          user_id?: string
+          challenge_id?: string
+          progress?: number
+          completed_at?: string | null
         }
         Relationships: []
       }

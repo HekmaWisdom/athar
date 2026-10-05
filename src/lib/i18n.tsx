@@ -20,12 +20,19 @@ export const dict: Dict = {
 
   today_wisdom: { ar: "حكمة اليوم", en: "Today's wisdom" },
   reflect_deeply: { ar: "تأمل بعمق", en: "Reflect deeply" },
-  ai_reasoning: { ar: "تفسير الذكاء الاصطناعي", en: "AI reflection" },
   save: { ar: "حفظ", en: "Save" },
   saved: { ar: "محفوظة", en: "Saved" },
   share: { ar: "مشاركة", en: "Share" },
   copy: { ar: "نسخ", en: "Copy" },
   copied: { ar: "تم النسخ", en: "Copied" },
+  download: { ar: "تنزيل", en: "Download" },
+  share_card_title: { ar: "شارك بطاقة الحكمة", en: "Share this wisdom" },
+  share_image: { ar: "مشاركة الصورة", en: "Share image" },
+  share_template_midnight: { ar: "ليل", en: "Midnight" },
+  share_template_parchment: { ar: "رقّ", en: "Parchment" },
+  share_template_gold: { ar: "ذهب", en: "Gold" },
+  share_format_story: { ar: "ستوري", en: "Story" },
+  share_format_square: { ar: "مربع", en: "Square" },
 
   mood_prompt: { ar: "كيف تشعر الآن؟", en: "How are you feeling?" },
   mood_calm: { ar: "سكينة", en: "Calm" },
@@ -42,10 +49,26 @@ export const dict: Dict = {
   no_entries: { ar: "لا توجد تدوينات بعد", en: "No entries yet" },
   first_entry: { ar: "ابدأ رحلتك بأول تدوينة", en: "Begin with your first entry" },
 
+  journal_lock_title: { ar: "يومياتك مشفّرة", en: "Your journal is encrypted" },
+  journal_lock_desc_new: {
+    ar: "اختر كلمة مرور لتشفير تدويناتك. لن يتمكن أحد، ولا حتى نحن، من قراءتها. لا يمكن استعادة كلمة المرور إذا نسيتها.",
+    en: "Choose a passphrase to encrypt your entries. No one — not even us — can read them. If you forget it, encrypted entries can't be recovered.",
+  },
+  journal_lock_desc_existing: {
+    ar: "أدخل كلمة المرور لفتح يومياتك المشفّرة.",
+    en: "Enter your passphrase to unlock your encrypted journal.",
+  },
+  journal_lock_placeholder: { ar: "كلمة المرور", en: "Passphrase" },
+  journal_unlock: { ar: "فتح", en: "Unlock" },
+  journal_unlock_wrong: { ar: "كلمة المرور غير صحيحة", en: "Incorrect passphrase" },
+
   favorites: { ar: "المفضلة", en: "Favorites" },
   no_favorites: { ar: "لم تحفظ أي حكمة بعد", en: "No saved wisdoms yet" },
   browse_categories: { ar: "استكشف المواضيع", en: "Explore themes" },
   view_all: { ar: "الكل", en: "All" },
+  tab_categories: { ar: "المواضيع", en: "Topics" },
+  tab_authors: { ar: "المؤلفون", en: "Authors" },
+  quotes_count: { ar: "حكمة", en: "quotes" },
 
   streak: { ar: "يوم متواصل", en: "day streak" },
   xp: { ar: "نقطة", en: "XP" },
@@ -79,8 +102,14 @@ export const dict: Dict = {
   arabic: { ar: "العربية", en: "Arabic" },
   english: { ar: "English", en: "English" },
 
-  ai_explain_cta: { ar: "اطلب تفسير الذكاء الاصطناعي", en: "Ask AI to explain" },
-  ai_thinking: { ar: "الذكاء الاصطناعي يفكر...", en: "AI is thinking…" },
+  reminders: { ar: "التذكيرات", en: "Reminders" },
+  reminders_desc: { ar: "إشعار يومي في الوقت الذي تختاره", en: "A daily notification at your chosen time" },
+  reminders_unsupported: { ar: "المتصفح لا يدعم الإشعارات", en: "Your browser doesn't support notifications" },
+  reminders_denied: { ar: "الإشعارات محظورة من إعدادات المتصفح", en: "Notifications are blocked in browser settings" },
+  reminder_time_label: { ar: "وقت التذكير", en: "Reminder time" },
+
+  curated_insight: { ar: "تأمل مُنسّق", en: "Curated insight" },
+  explain_coming_soon: { ar: "تأمّلنا في هذه الحكمة قيد الإعداد وسيصل قريبًا.", en: "Our reflection on this wisdom is being written and will arrive soon." },
   action_step: { ar: "خطوتك اليوم", en: "Your action step" },
   reflection_q: { ar: "سؤال للتأمل", en: "A question to reflect" },
 
@@ -98,6 +127,10 @@ export const dict: Dict = {
   onboarding_finish: { ar: "ابدأ رحلتك", en: "Start your journey" },
   onboarding_back: { ar: "رجوع", en: "Back" },
   onboarding_min_interests: { ar: "اختر 3 مواضيع على الأقل", en: "Pick at least 3 themes" },
+
+  badges_title: { ar: "الأوسمة", en: "Badges" },
+  badges_earned_count: { ar: "محقّقة", en: "earned" },
+  challenge_title: { ar: "تحدي الأسبوع", en: "This Week's Challenge" },
 };
 
 type Ctx = {

@@ -6,8 +6,11 @@ import { Flame, Search as SearchIcon, Settings, ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { QuoteCard } from "@/components/QuoteCard";
 import { ExplainSheet } from "@/components/ExplainSheet";
+import { ChallengeCard } from "@/components/ChallengeCard";
 import { greetingKey, useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-context";
+import { trackEvent } from "@/lib/analytics";
+import { checkAndNotifyBadges } from "@/lib/badges";
 import {
   getDailyQuote,
   getFavorites,
@@ -22,6 +25,19 @@ import {
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
+
+// Module-level (not component-local) on purpose: TanStack Router remounts
+// HomePage several times while auth/onboarding settle right after sign-in, and
+// a React ref/state guard resets on each of those remounts — the mount that
+// gets the true "isNewDay" signal from the server can be torn down before it
+// ever gets to act on it, and every later remount correctly (but uselessly)
+// re-derives isNewDay:false since the row now already exists. A module-level
+// value survives remounts within the same page load and only resets on a real
+// reload. Keyed by user id (not a plain boolean) so switching accounts within
+// one tab session — sign out, sign in as someone else, no reload — still
+// tracks the new user's visit instead of staying silently latched from the
+// previous one.
+let dailyVisitTrackedForUserId: string | null = null;
 
 const MOODS = [
   { key: "mood_calm", emoji: "🌙" },
@@ -69,8 +85,24 @@ function HomePage() {
   const isFavorite = (id: string) => !!favs.data?.some((f) => f.quote_id === id);
 
   useEffect(() => {
-    if (user) void trackDailyVisit(user.id).then(() => qc.invalidateQueries({ queryKey: ["user-stats"] }));
-  }, [user, qc]);
+    if (!user || dailyVisitTrackedForUserId === user.id) return;
+    dailyVisitTrackedForUserId = user.id;
+    void (async () => {
+      const { isNewDay } = await trackDailyVisit(user.id);
+      qc.invalidateQueries({ queryKey: ["user-stats"] });
+      if (!isNewDay) return;
+      // Fetch (or reuse the already-cached) daily quote via the query client
+      // directly, rather than reading this component's own dailyQ.data — that
+      // render-tied state may not exist yet, or may belong to an instance
+      // that's already been torn down by the time this resolves.
+      const quote = await qc.fetchQuery({ queryKey: ["daily-quote"], queryFn: getDailyQuote });
+      if (!quote) return;
+      await trackEvent("quote_read", user.id, { quote_id: quote.id });
+      checkAndNotifyBadges(user.id, locale);
+      // ChallengeCard's progress query likely ran before this event landed.
+      void qc.invalidateQueries({ queryKey: ["challenge-progress"] });
+    })();
+  }, [user, qc, locale]);
 
   const moodMut = useMutation({
     mutationFn: (m: string) => {
@@ -125,6 +157,8 @@ function HomePage() {
             onExplain={() => setExplainOpen(dailyQ.data!)}
           />
         )}
+
+        {user && <ChallengeCard />}
 
         {/* Mood check-in */}
         <section className="space-y-3">

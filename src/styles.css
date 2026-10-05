@@ -44,7 +44,7 @@
   --color-gold: var(--gold);
 
   --font-sans: "Noto Sans Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Noto Naskh Arabic", "Amiri", ui-serif, serif;
+  --font-serif: "Amiri", "Noto Naskh Arabic", ui-serif, serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);

@@ -24,7 +24,23 @@ function AdminPage() {
   const qc = useQueryClient();
 
   const [tab, setTab] = useState<"quotes" | "authors" | "categories">("quotes");
-  const [editing, setEditing] = useState<null | { id?: string; text_ar: string; text_en: string; author_id: string | null; category_id: string | null; published: boolean }>(null);
+  const [editing, setEditing] = useState<null | {
+    id?: string;
+    text_ar: string;
+    text_en: string;
+    author_id: string | null;
+    category_id: string | null;
+    published: boolean;
+    explanation_ar: string;
+    explanation_en: string;
+    modern_context_ar: string;
+    modern_context_en: string;
+    action_step_ar: string;
+    action_step_en: string;
+    journal_prompt_ar: string;
+    journal_prompt_en: string;
+    is_premium_explanation: boolean;
+  }>(null);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) void nav({ to: "/" });
@@ -35,7 +51,9 @@ function AdminPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("quotes")
-        .select("id, text_ar, text_en, published, author:authors(name_ar), category:categories(name_ar)")
+        .select(
+          "id, text_ar, text_en, published, author_id, category_id, explanation_ar, explanation_en, modern_context_ar, modern_context_en, action_step_ar, action_step_en, journal_prompt_ar, journal_prompt_en, is_premium_explanation, author:authors(name_ar), category:categories(name_ar)",
+        )
         .order("created_at", { ascending: false })
         .limit(200);
       return data ?? [];
@@ -62,6 +80,15 @@ function AdminPage() {
         author_id: editing.author_id,
         category_id: editing.category_id,
         published: editing.published,
+        explanation_ar: editing.explanation_ar || null,
+        explanation_en: editing.explanation_en || null,
+        modern_context_ar: editing.modern_context_ar || null,
+        modern_context_en: editing.modern_context_en || null,
+        action_step_ar: editing.action_step_ar || null,
+        action_step_en: editing.action_step_en || null,
+        journal_prompt_ar: editing.journal_prompt_ar || null,
+        journal_prompt_en: editing.journal_prompt_en || null,
+        is_premium_explanation: editing.is_premium_explanation,
       };
       if (editing.id) {
         const { error } = await supabase.from("quotes").update(payload).eq("id", editing.id);
@@ -130,7 +157,22 @@ function AdminPage() {
         <section className="space-y-3">
           <button
             onClick={() =>
-              setEditing({ text_ar: "", text_en: "", author_id: null, category_id: null, published: true })
+              setEditing({
+                text_ar: "",
+                text_en: "",
+                author_id: null,
+                category_id: null,
+                published: true,
+                explanation_ar: "",
+                explanation_en: "",
+                modern_context_ar: "",
+                modern_context_en: "",
+                action_step_ar: "",
+                action_step_en: "",
+                journal_prompt_ar: "",
+                journal_prompt_en: "",
+                is_premium_explanation: false,
+              })
             }
             className="glass flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-primary hover:bg-primary/5"
           >
@@ -153,9 +195,18 @@ function AdminPage() {
                         id: q.id,
                         text_ar: q.text_ar,
                         text_en: q.text_en ?? "",
-                        author_id: null,
-                        category_id: null,
+                        author_id: q.author_id,
+                        category_id: q.category_id,
                         published: q.published,
+                        explanation_ar: q.explanation_ar ?? "",
+                        explanation_en: q.explanation_en ?? "",
+                        modern_context_ar: q.modern_context_ar ?? "",
+                        modern_context_en: q.modern_context_en ?? "",
+                        action_step_ar: q.action_step_ar ?? "",
+                        action_step_en: q.action_step_en ?? "",
+                        journal_prompt_ar: q.journal_prompt_ar ?? "",
+                        journal_prompt_en: q.journal_prompt_en ?? "",
+                        is_premium_explanation: q.is_premium_explanation,
                       })
                     }
                     className="grid size-8 place-items-center rounded-full text-muted-foreground hover:text-foreground"
@@ -249,6 +300,87 @@ function AdminPage() {
                 ))}
               </select>
             </div>
+
+            <p className="pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Curated content (shown instead of AI-generated explanation, when filled in)
+            </p>
+            <textarea
+              value={editing.explanation_ar}
+              onChange={(e) => setEditing({ ...editing, explanation_ar: e.target.value })}
+              placeholder="الشرح (عربي)"
+              rows={2}
+              className="w-full rounded-2xl bg-input p-3 text-sm outline-none"
+              dir="rtl"
+            />
+            <textarea
+              value={editing.explanation_en}
+              onChange={(e) => setEditing({ ...editing, explanation_en: e.target.value })}
+              placeholder="Explanation (English)"
+              rows={2}
+              className="w-full rounded-2xl bg-input p-3 text-sm outline-none"
+              dir="ltr"
+            />
+            <textarea
+              value={editing.modern_context_ar}
+              onChange={(e) => setEditing({ ...editing, modern_context_ar: e.target.value })}
+              placeholder="السياق المعاصر (عربي، اختياري)"
+              rows={2}
+              className="w-full rounded-2xl bg-input p-3 text-sm outline-none"
+              dir="rtl"
+            />
+            <textarea
+              value={editing.modern_context_en}
+              onChange={(e) => setEditing({ ...editing, modern_context_en: e.target.value })}
+              placeholder="Modern context (English, optional)"
+              rows={2}
+              className="w-full rounded-2xl bg-input p-3 text-sm outline-none"
+              dir="ltr"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <textarea
+                value={editing.action_step_ar}
+                onChange={(e) => setEditing({ ...editing, action_step_ar: e.target.value })}
+                placeholder="خطوة عملية (عربي)"
+                rows={2}
+                className="rounded-2xl bg-input p-3 text-sm outline-none"
+                dir="rtl"
+              />
+              <textarea
+                value={editing.action_step_en}
+                onChange={(e) => setEditing({ ...editing, action_step_en: e.target.value })}
+                placeholder="Action step (English)"
+                rows={2}
+                className="rounded-2xl bg-input p-3 text-sm outline-none"
+                dir="ltr"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <textarea
+                value={editing.journal_prompt_ar}
+                onChange={(e) => setEditing({ ...editing, journal_prompt_ar: e.target.value })}
+                placeholder="سؤال للتأمل (عربي)"
+                rows={2}
+                className="rounded-2xl bg-input p-3 text-sm outline-none"
+                dir="rtl"
+              />
+              <textarea
+                value={editing.journal_prompt_en}
+                onChange={(e) => setEditing({ ...editing, journal_prompt_en: e.target.value })}
+                placeholder="Journal prompt (English)"
+                rows={2}
+                className="rounded-2xl bg-input p-3 text-sm outline-none"
+                dir="ltr"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={editing.is_premium_explanation}
+                onChange={(e) => setEditing({ ...editing, is_premium_explanation: e.target.checked })}
+              />
+              Premium explanation
+            </label>
+
             <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
